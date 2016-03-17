@@ -20,6 +20,10 @@ INSTALL    = /usr/local
 
 CTESTFLAGS = -Wall -Isrc/ -Itest/ -L./ -std=c++11 -lstdc++
 
+ifeq ($(OS),Windows_NT)
+    TARGET = libsqlparser.dll
+endif
+
 all: library
 
 library: $(TARGET)
