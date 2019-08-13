@@ -28,7 +28,13 @@ endif
 
 GMAKE = make mode=$(mode)
 
-
+# Filesystem library
+## GNU implementation requires linking with -lstdc++fs and
+## LLVM implementation requires linking with -lc++fs
+FSLIB = -lstdc++fs
+ifneq (,$(findstring clang,$(CXX)))
+	FSLIB = -lc++fs
+endif
 
 #######################################
 ############### Library ###############
@@ -36,7 +42,7 @@ GMAKE = make mode=$(mode)
 NAME := sqlparser
 PARSER_CPP = $(SRCPARSER)/bison_parser.cpp  $(SRCPARSER)/flex_lexer.cpp
 PARSER_H   = $(SRCPARSER)/bison_parser.h    $(SRCPARSER)/flex_lexer.h
-LIB_CFLAGS = -std=c++1z -Wall -Werror $(OPT_FLAG)
+LIB_CFLAGS = -std=c++17 -Wall -Werror $(OPT_FLAG)
 
 static ?= no
 ifeq ($(static), yes)
@@ -112,7 +118,7 @@ save_benchmarks: benchmark
 
 $(BM_BUILD): $(BM_ALL) $(LIB_BUILD)
 	@mkdir -p $(BIN)/
-	$(CXX) $(BM_CFLAGS) $(BM_CPP) -o $(BM_BUILD) -lbenchmark -lpthread -lsqlparser -lstdc++ -lstdc++fs
+	$(CXX) $(BM_CFLAGS) $(BM_CPP) -o $(BM_BUILD) -lbenchmark -lpthread -lsqlparser -lstdc++ $(FSLIB)
 
 
 
@@ -120,7 +126,7 @@ $(BM_BUILD): $(BM_ALL) $(LIB_BUILD)
 ############ Test & Example ############
 ########################################
 TEST_BUILD   = $(BIN)/tests
-TEST_CFLAGS   = -std=c++1z -Wall -Werror -Isrc/ -Itest/ -L./ $(OPT_FLAG)
+TEST_CFLAGS   = -std=c++17 -Wall -Werror -Isrc/ -Itest/ -L./ $(OPT_FLAG)
 TEST_CPP     = $(shell find test/ -name '*.cpp')
 TEST_ALL     = $(shell find test/ -name '*.cpp') $(shell find test/ -name '*.h')
 EXAMPLE_SRC  = $(shell find example/ -name '*.cpp') $(shell find example/ -name '*.h')
@@ -130,7 +136,7 @@ test: $(TEST_BUILD)
 
 $(TEST_BUILD): $(TEST_ALL) $(LIB_BUILD)
 	@mkdir -p $(BIN)/
-	$(CXX) $(TEST_CFLAGS) $(TEST_CPP) -o $(TEST_BUILD) -lsqlparser -lstdc++
+	$(CXX) $(TEST_CFLAGS) $(TEST_CPP) -o $(TEST_BUILD) -lsqlparser -lstdc++ $(FSLIB)
 
 test_example:
 	$(GMAKE) -C example/

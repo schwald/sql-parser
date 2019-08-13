@@ -2,82 +2,67 @@
 
 #include "SQLParser.h"
 #include "util/sqlhelper.h"
-
 #include "sql_asserts.h"
 
-#include <string>
+#include <filesystem>
 #include <fstream>
-#include <streambuf>
 #include <iostream>
+#include <streambuf>
+#include <string>
+#include <vector>
+
 
 using namespace hsql;
+namespace fs = std::filesystem;
 
-std::string readFileContents(std::string file_path) {
+
+std::string readFileContents(const std::string& file_path) {
   std::ifstream t(file_path.c_str());
   std::string text((std::istreambuf_iterator<char>(t)),
                    std::istreambuf_iterator<char>());
   return text;
 }
 
-TEST(TPCHQueryGrammarTests) {
-  std::vector<std::string> files = {
-    "test/queries/tpc-h-01.sql",
-    "test/queries/tpc-h-02.sql",
-    "test/queries/tpc-h-03.sql",
-    "test/queries/tpc-h-04.sql",
-    "test/queries/tpc-h-05.sql",
-    "test/queries/tpc-h-06.sql",
-    "test/queries/tpc-h-07.sql",
-    "test/queries/tpc-h-08.sql",
-    "test/queries/tpc-h-09.sql",
-    "test/queries/tpc-h-10.sql",
-    "test/queries/tpc-h-11.sql",
-    "test/queries/tpc-h-12.sql",
-    "test/queries/tpc-h-13.sql",
-    "test/queries/tpc-h-14.sql",
-    "test/queries/tpc-h-15.sql",
-    "test/queries/tpc-h-16.sql",
-    "test/queries/tpc-h-17.sql",
-    "test/queries/tpc-h-18.sql",
-    "test/queries/tpc-h-19.sql",
-    "test/queries/tpc-h-20.sql",
-    "test/queries/tpc-h-21.sql",
-    "test/queries/tpc-h-22.sql",
-  };
-
-  int testsFailed = 0;
-  std::string concatenated = "";
-  for (const std::string& file_path : files) {
-    std::string query = readFileContents(file_path);
-
-    concatenated += query;
-    if (concatenated.back() != ';') concatenated += ';';
-
-    SQLParserResult result;
-    SQLParser::parse(query.c_str(), &result);
-    if (!result.isValid()) {
-      mt::printFailed(file_path.c_str());
-      printf("%s           %s (L%d:%d)%s\n", mt::red(), result.errorMsg(), result.errorLine(), result.errorColumn(), mt::def());
-      ++testsFailed;
-    } else {
-      mt::printOk(file_path.c_str());
-    }
-  }
+bool runSqlQueryFromFile(const std::string &file_path) {
+  std::string query = readFileContents(file_path);
 
   SQLParserResult result;
-  SQLParser::parse(concatenated.c_str(), &result);
+  SQLParser::parse(query.c_str(), &result);
   if (!result.isValid()) {
-    mt::printFailed("TPCHAllConcatenated");
+    mt::printFailed(file_path.c_str());
     printf("%s           %s (L%d:%d)%s\n", mt::red(), result.errorMsg(), result.errorLine(), result.errorColumn(), mt::def());
-    ++testsFailed;
   } else {
-    mt::printOk("TPCHAllConcatenated");
+    mt::printOk(file_path.c_str());
+    return true;
   }
-
-  ASSERT_EQ(testsFailed, 0);
+  return false;
 }
 
-TEST(TPCHQueryDetailTest) {
+TEST(FileBasedSQLGrammarTests) {
+  std::string rootPath = "test/queries/";
+
+  // Create sorted list of filepaths to .sql files
+  std::vector<std::string> filePaths;
+  for(auto& entry : fs::recursive_directory_iterator(rootPath)) {
+    if (fs::is_regular_file(entry) && fs::path(entry).extension() == ".sql") {
+      filePaths.emplace_back(entry.path());
+    }
+  }
+  sort(filePaths.begin(), filePaths.end());
+
+  // Run queries
+  int queryRuns = 0;
+  int queryFails = 0;
+  for(auto& filePath : filePaths) {
+    bool success = runSqlQueryFromFile(filePath);
+    if(!success) queryFails++;
+    queryRuns++;
+  }
+
+  ASSERT_EQ(queryFails, 46)
+}
+
+TEST(QueryDetailTestTPCH20) {
   std::string query = readFileContents("test/queries/tpc-h-20.sql");
 
   SQLParserResult result;
